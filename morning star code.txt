@@ -1,0 +1,51 @@
+import yfinance as yf
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def fetch_stock_data(symbol, start_date, end_date):
+    stock_data = yf.download(symbol, start=start_date, end=end_date)
+    return stock_data
+
+def identify_morning_star(df):
+    df['SMA_10'] = df['Close'].rolling(window=10).mean()
+    df['SMA_50'] = df['Close'].rolling(window=50).mean()
+
+    df['Prev_Close'] = df['Close'].shift(1)
+    df['Prev_Open'] = df['Open'].shift(1)
+
+    # Check for Morning Star pattern
+    df['Bullish_Candle'] = (df['Close'] > df['Open']) & (df['Close'] > df['Prev_Close'])
+    df['Small_Real_Body'] = abs(df['Close'] - df['Open']) < 0.1 * (df['High'] - df['Low'])
+    df['Gap_Up'] = df['Open'] < df['Prev_Close']
+    df['Prev_Day_Down'] = df['Prev_Close'] > df['Prev_Open']
+
+    morning_star_pattern = df['Bullish_Candle'] & df['Small_Real_Body'] & df['Gap_Up'] & df['Prev_Day_Down']
+    df['Morning_Star'] = morning_star_pattern
+
+    return df
+
+def plot_chart(df, symbol):
+    plt.figure(figsize=(12, 6))
+    plt.plot(df['Close'], label=symbol, color='blue')
+    plt.plot(df['SMA_10'], label='SMA 10', color='orange')
+    plt.plot(df['SMA_50'], label='SMA 50', color='green')
+
+    # Highlight Morning Star pattern
+    morning_star_dates = df[df['Morning_Star']].index
+    plt.scatter(morning_star_dates, df.loc[morning_star_dates, 'Close'], marker='^', color='red', label='Morning Star')
+
+    plt.title(f'{symbol} Stock Price with Morning Star Pattern')
+    plt.xlabel('Date')
+    plt.ylabel('Stock Price')
+    plt.legend()
+    plt.show()
+
+if __name__ == "__main__":
+    # Replace 'AAPL' with the desired stock symbol
+    stock_symbol = 'AAPL'
+    start_date = '2023-01-01'
+    end_date = '2024-01-01'
+
+    stock_data = fetch_stock_data(stock_symbol, start_date, end_date)
+    stock_data_with_pattern = identify_morning_star(stock_data)
+    plot_chart(stock_data_with_pattern, stock_symbol)
